@@ -21,13 +21,10 @@ class BoxOfficeMojoScraper(MovieScraper):
   START_DATE = dt.date(1999, 12, 31)
 
 
-  def __init__(self):
-    self.MaybeCreateBoxOfficeTable()
-    self.MaybeCreateIdTable()
-
-
   def run(self):
     """Runs the scraper."""
+    self.MaybeCreateBoxOfficeTable()
+    self.MaybeCreateIdTable()
     weeks = self.GetListOfWeeks()
     for week in weeks:
       chart = self.LoadWeeklyChart(week)
@@ -55,7 +52,7 @@ class BoxOfficeMojoScraper(MovieScraper):
              for x in range(0, delta_weeks + 1)]
     weeks = [week.strftime('%Y-%m-%d') for week in weeks]
     self.cursor.execute(
-        'SELECT DISTINCT week FROM %s' % self.BOX_OFFICE_TABLE_NAME)
+        'SELECT DISTINCT week FROM %s' % self.BOX_OFFICE_TABLE)
     weeks_in_table = [x[0] for x in self.cursor.fetchall()]
     weeks = list(set(weeks) - set(weeks_in_table))
     weeks.sort()    
@@ -64,14 +61,14 @@ class BoxOfficeMojoScraper(MovieScraper):
 
   def LoadWeeklyChart(self, week):
     """Loads the chart for the specified week, either from disk or the web."""
-    file_name = '%s.html' % week
-    if file_name in os.listdir(self.HTML_DIR):
+    file = '%s.html' % week
+    if file in os.listdir(self.HTML_DIR):
       print 'Loading chart for week of %s' % week
-      with open(os.path.join(self.HTML_DIR, file_name), 'r') as f:
+      with open(os.path.join(self.HTML_DIR, file), 'r') as f:
         chart = f.read()
     else:
       chart = self.DownloadWeeklyChart(week)
-      self.SaveWeeklyChart(chart, file_name)
+      self.SaveWeeklyChart(chart, file)
     return chart
 
 
@@ -91,9 +88,9 @@ class BoxOfficeMojoScraper(MovieScraper):
     return response.content
 
 
-  def SaveWeeklyChart(self, chart, file_name):
+  def SaveWeeklyChart(self, chart, file):
     """Saves a downloaded chart to disk."""
-    with open(os.path.join(self.HTML_DIR, file_name), 'w') as f:
+    with open(os.path.join(self.HTML_DIR, file), 'w') as f:
       f.write(chart)
 
 
@@ -132,19 +129,18 @@ class BoxOfficeMojoScraper(MovieScraper):
     """Writes a row to the database."""
     query = ('INSERT INTO %s VALUES '
              '  (\'%s\', \'%s\', \'%s\', \'%s\', %s, %s, %s)' %
-             (self.BOX_OFFICE_TABLE_NAME, row['week'], row['id'], row['title'],
+             (self.BOX_OFFICE_TABLE, row['week'], row['id'], row['title'],
               row['studio'], row['gross'], row['theaters'], row['budget']))
     self.cursor.execute(query)
 
 
   def UpdateIdTable(self):
-    """Adds new BoxOfficeMojo IDs to the ID table."""
+    """Adds new BoxOfficeMojo ids to the id table."""
     query = ('INSERT INTO %s '
-             '  SELECT DISTINCT title, \'\', \'\', \'\' '
+             '  SELECT DISTINCT id, \'\', \'\', \'\' '
              '  FROM %s '
-             '  WHERE title NOT IN (SELECT box_office_mojo FROM %s)' %
-             (self.ID_TABLE_NAME, self.BOX_OFFICE_TABLE_NAME,
-              self.ID_TABLE_NAME))
+             '  WHERE id NOT IN (SELECT box_office_mojo FROM %s)' %
+             (self.ID_TABLE, self.BOX_OFFICE_TABLE, self.ID_TABLE))
     self.cursor.execute(query)
       
 
